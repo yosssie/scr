@@ -1,0 +1,1132 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f3ff">
+  <title>すうじをいれてみよう</title>
+  <style>
+    html { scrollbar-width: none; -ms-overflow-style: none; }
+    html::-webkit-scrollbar { display: none; }
+    :root {
+      color-scheme: light;
+      --ink: #29234a;
+      --muted: #77728e;
+      --purple: #7659e8;
+      --purple-dark: #6043d0;
+      --line: #e8e3f5;
+      --paper: #fff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 28px 18px;
+      display: grid;
+      place-items: center;
+      color: var(--ink);
+      background:
+        radial-gradient(ellipse at 12% 12%, #ece8ff 0, transparent 33%),
+        radial-gradient(ellipse at 90% 86%, #dff7f1 0, transparent 32%),
+        #f8f7fc;
+      font-family: ui-rounded, "Hiragino Maru Gothic ProN", "Noto Sans JP", system-ui, sans-serif;
+    }
+    body.animation-mode { place-items: start center; }
+    .app { width: min(100%, 520px); }
+    .card {
+      padding: clamp(18px, 5vw, 28px);
+      border: 1px solid #fff;
+      border-radius: 28px;
+      background: rgb(255 255 255 / 92%);
+      box-shadow: 0 18px 55px rgb(62 45 120 / 12%), 0 3px 10px rgb(62 45 120 / 5%);
+    }
+    .expression {
+      display: grid;
+      grid-template-columns: 1fr 60px 1fr;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .expression.with-result { grid-template-columns: minmax(0, 1fr) 42px minmax(0, 1fr) 42px minmax(0, 1fr); gap: 4px; }
+    .number-box {
+      min-width: 0;
+      padding: 10px 12px 9px;
+      border: 2px solid var(--line);
+      border-radius: 17px;
+      background: #fbfaff;
+      text-align: center;
+      transition: border-color .18s ease, background .18s ease, color .18s ease, transform .18s ease;
+      cursor: text;
+    }
+    .number-box.active { border-color: var(--purple); background: #f4f0ff; transform: translateY(-2px); }
+    .number-box.operand-left { color: #4164cc; }
+    .number-box.operand-right { color: #cf4e75; }
+    .number-box.active.operand-left { border-color: #6385ed; background: #eef2ff; }
+    .number-box.active.operand-right { border-color: #f17a9b; background: #fff0f4; }
+    .number-box:focus-visible { outline: 3px solid #c9bcff; outline-offset: 3px; }
+    .number-value { display: block; min-height: 1.3em; overflow: hidden; font-size: clamp(2.7rem, 12vw, 3.5rem); font-weight: 900; line-height: 1.2; text-overflow: ellipsis; }
+    .number-value.empty { color: #c4bfd2; }
+    .expression-mark { color: var(--purple); font-size: 3rem; font-weight: 900; text-align: center; line-height: 1; }
+    .hint { min-height: 1.4em; margin: 0 0 20px; color: var(--muted); font-size: .86rem; text-align: center; }
+    .keypad-area { display: grid; grid-template-columns: minmax(0, 1fr) 88px; gap: 10px; }
+    .digits { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); grid-template-rows: repeat(2, 64px); gap: 9px; }
+    button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    .digit {
+      border: 1px solid #eeeaf7;
+      border-radius: 17px;
+      color: var(--ink);
+      background: var(--paper);
+      box-shadow: 0 4px 0 #e9e5f1, 0 6px 13px rgb(47 38 88 / 5%);
+      font-size: 1.45rem;
+      font-weight: 850;
+      transition: transform .1s ease, box-shadow .1s ease, background .1s ease;
+    }
+    .digit:hover { background: #f7f4ff; }
+    .digit:active { transform: translateY(3px) scale(.97); box-shadow: 0 1px 0 #e9e5f1; }
+    .delete {
+      grid-row: span 2;
+      display: grid;
+      place-content: center;
+      gap: 6px;
+      border: 0;
+      border-radius: 18px;
+      color: #fff;
+      background: linear-gradient(155deg, #ff8c9c, #ed647e);
+      box-shadow: 0 5px 0 #d9506a, 0 9px 16px rgb(217 80 106 / 20%);
+      font-weight: 850;
+      transition: transform .1s ease, box-shadow .1s ease;
+    }
+    .delete:hover { filter: brightness(1.03); }
+    .delete:active { transform: translateY(3px); box-shadow: 0 2px 0 #d9506a; }
+    .delete-icon { font-size: 1.5rem; line-height: 1; }
+    .delete-text { font-size: .86rem; }
+    .future-controls {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 9px;
+      margin-top: 20px;
+    }
+    .operators { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
+    .control-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; padding-top: 18px; border-top: 1px solid #f0edf6; }
+    .operator, .confirm {
+      min-height: 64px;
+      border: 1px solid #eeeaf7;
+      border-radius: 15px;
+      color: #a49eb5;
+      background: #f7f6fa;
+      font-size: 1.75rem;
+      font-weight: 850;
+      cursor: pointer;
+      transition: transform .12s ease, background .12s ease, color .12s ease, box-shadow .12s ease;
+    }
+    .operator:hover { background: #f1edff; }
+    .operator:active { transform: translateY(2px); }
+    .operator.selected { border-color: var(--purple); color: #fff; background: var(--purple); box-shadow: 0 4px 0 var(--purple-dark); }
+    .operator:focus-visible, .confirm:focus-visible, .digit:focus-visible, .delete:focus-visible { outline: 3px solid #c9bcff; outline-offset: 3px; }
+    .reset { min-height: 64px; border: 1px solid #eeeaf7; border-radius: 15px; color: var(--ink); background: #f7f6fa; font-size: 1.05rem; font-weight: 850; box-shadow: 0 4px 0 #e9e5f1; }
+    .reset:focus-visible { outline: 3px solid #c9bcff; outline-offset: 3px; }
+    .reset:active { transform: translateY(2px); box-shadow: 0 2px 0 #e9e5f1; }
+    .confirm { width: 100%; min-height: 64px; color: #fff; border-color: var(--purple); background: var(--purple); font-size: 1.1rem; cursor: pointer; box-shadow: 0 4px 0 var(--purple-dark); }
+    .confirm:hover { background: var(--purple-dark); }
+    .confirm:active { transform: translateY(2px); box-shadow: 0 2px 0 var(--purple-dark); }
+    .coming-soon { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    .visualization { display: none; margin-bottom: 18px; padding: 8px 14px 20px; }
+    .visualization.visible { display: block; animation: stage-appear .35s ease-out both; }
+    @keyframes stage-appear { from { opacity: 0; transform: translateY(12px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    .stage-expression-slot { min-height: 74px; margin: 0 auto 32px; max-width: 440px; }
+    .stage-expression-slot .expression { margin: 0; }
+    .stage-expression-slot .number-box { padding: 4px; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+    .stage-expression-slot .number-box { align-self: start; }
+    .stage-expression-slot .number-box.active { border: 0; background: transparent; transform: none; }
+    .stage-expression-slot .number-value { font-size: clamp(2.5rem, 9vw, 3.4rem); }
+    .stage-expression-slot .expression-mark { align-self: start; margin-top: 5px; }
+    .stage-expression-slot .expression-mark { font-size: 3.4rem; }
+    .stage-expression-slot .expression-mark, .stage-expression-slot .number-box { transition: opacity .24s ease; }
+    .stage-expression-slot .expression-mark.veiled, .stage-expression-slot .number-box.veiled { opacity: 0; visibility: hidden; }
+    .result-mark, .result-value { display: none; color: var(--ink); font-size: clamp(2.4rem, 8vw, 3.2rem); font-weight: 950; line-height: 1.1; text-align: center; }
+    .expression.with-result .result-mark, .expression.with-result .result-value { display: block; }
+    .stage-expression-slot .expression.with-result .result-mark { font-size: 2.7rem; }
+    .stage-expression-slot .expression.with-result .result-mark, .stage-expression-slot .expression.with-result .result-value { align-self: start; margin-top: 5px; }
+    .stage-expression-slot .expression.with-result .result-value { color: #21834b; font-size: clamp(2.5rem, 9vw, 3.4rem); }
+    .stage-expression-slot .expression.division-result .result-value { font-size: clamp(1.05rem, 4vw, 1.55rem); white-space: nowrap; }
+    .grid-layout { display: grid; grid-template-columns: clamp(20px, 6vw, 28px) minmax(0, 1fr); grid-template-rows: clamp(20px, 6vw, 28px) minmax(0, 1fr); width: 100%; max-width: 448px; aspect-ratio: 1; margin: 0 auto; }
+    .column-headers { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); grid-column: 2; grid-row: 1; align-items: center; text-align: center; color: #827c98; font-size: clamp(.58rem, 2.5vw, .78rem); font-weight: 750; }
+    .row-headers { display: grid; grid-template-rows: repeat(10, minmax(0, 1fr)); grid-column: 1; grid-row: 2; align-items: center; text-align: center; color: #827c98; font-size: clamp(.58rem, 2.5vw, .78rem); font-weight: 750; }
+    .grid-board { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); grid-template-rows: repeat(10, minmax(0, 1fr)); gap: clamp(2px, 1vw, 5px); grid-column: 2; grid-row: 2; width: 100%; height: 100%; min-height: 0; }
+    .grid-cell { position: relative; display: grid; place-items: center; min-width: 0; border: 1px solid #e8e7f0; border-radius: 5px; background: #fbfbfe; }
+    .grid-cell.split-before { border-left: 2px dashed #7864ce; }
+    .grid-cell.stay-source { border-color: #df63a6; background: #fde5f2; }
+    .grid-cell.move-source, .grid-cell.move-target { border-color: #e99a35; background: #fff0d9; }
+    .grid-cell.product-group { border-top: 1px solid #e45b83; border-bottom: 1px solid #e45b83; background: #fff0f4; }
+    .grid-cell.product-group-start { border-left: 1px solid #e45b83; border-radius: 6px 0 0 6px; }
+    .grid-cell.product-group-end { border-right: 1px solid #e45b83; border-radius: 0 6px 6px 0; }
+    .dot { width: min(68%, 22px); aspect-ratio: 1; border-radius: 50%; box-shadow: inset 0 2px 3px rgb(255 255 255 / 35%), 0 2px 5px rgb(30 35 70 / 18%); z-index: 1; }
+    .dot.product-moving { position: relative; z-index: 10; }
+    .dot.left { background: radial-gradient(circle at 32% 28%, #8fa9ff, #526fdf 70%); }
+    .dot.right { background: radial-gradient(circle at 32% 28%, #ffabc0, #e45b83 70%); }
+    .split-values { display: none; }
+    .stage-expression-slot .split-values { display: flex; min-height: 1.15em; align-items: center; justify-content: center; gap: clamp(12px, 4vw, 20px); color: #cf4e75; font-size: clamp(1.3rem, 5vw, 1.8rem); font-weight: 900; line-height: 1; visibility: hidden; }
+    .stage-expression-slot .split-values.shown { visibility: visible; animation: split-in .25s ease-out both; }
+    .stage-expression-slot .split-values .stay-number { color: #d13b8a; }
+    .stage-expression-slot .split-values .move-number { color: #e28a1c; }
+    @keyframes split-in { from { opacity: 0; transform: translateY(-5px) scale(.8); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    .stage-actions { display: none; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+    .stage-actions.visible { display: grid; animation: stage-appear .3s ease-out both; }
+    .stage-action { min-height: 50px; border: 1px solid #e6e1f1; border-radius: 15px; color: var(--ink); background: #f8f6fc; font-size: 1rem; font-weight: 800; box-shadow: 0 3px 0 #e8e3f0; }
+    .stage-action.primary { border-color: var(--purple); color: #fff; background: var(--purple); box-shadow: 0 3px 0 var(--purple-dark); }
+    .expression.fly { z-index: 10; transition: transform .72s cubic-bezier(.15, .8, .25, 1); transform-origin: top left; }
+    .app.finished .card { display: none; }
+    @media (max-width: 370px) {
+      .keypad-area { grid-template-columns: minmax(0, 1fr) 72px; gap: 8px; }
+      .stage-expression-slot .expression.with-result { grid-template-columns: minmax(0, 1.15fr) 34px minmax(0, 1.15fr) 34px minmax(0, 1.3fr); gap: 2px; }
+      .stage-expression-slot .number-value { font-size: clamp(2.1rem, 8vw, 2.7rem); }
+      .stage-expression-slot .expression-mark { font-size: 2.8rem; }
+      .stage-expression-slot .expression.with-result .result-mark { font-size: 2.3rem; }
+      .stage-expression-slot .expression.with-result .result-value { font-size: clamp(2rem, 7.5vw, 2.8rem); }
+      .digits { grid-template-rows: repeat(2, 56px); gap: 7px; }
+      .digit { border-radius: 14px; }
+      .delete { border-radius: 15px; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="visualization" id="visualization" aria-label="計算の表示">
+      <div class="stage-expression-slot" id="stageExpressionSlot"></div>
+      <div class="grid-layout" aria-label="行と列の番号がついた10行10列のマス">
+        <div class="column-headers" aria-hidden="true"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span></div>
+        <div class="row-headers" aria-hidden="true"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></div>
+        <div class="grid-board" id="gridBoard"></div>
+      </div>
+      <div class="stage-actions" id="stageActions">
+        <button class="stage-action" id="backButton" type="button">戻る</button>
+        <button class="stage-action primary" id="replayButton" type="button">もう一度</button>
+      </div>
+    </section>
+    <section class="card" id="inputCard" aria-label="数字入力">
+      <div class="expression" aria-label="入力中の式">
+        <div class="number-box active" id="leftBox" role="button" tabindex="0" aria-label="ひだりの数を入力">
+          <output class="number-value empty" id="leftValue">？</output>
+        </div>
+        <span class="expression-mark" id="expressionMark" aria-hidden="true">□</span>
+        <div class="number-box" id="rightBox" role="button" tabindex="0" aria-label="みぎの数を入力">
+          <output class="number-value empty" id="rightValue">？</output>
+          <div class="split-values" id="splitValues" aria-hidden="true"><span id="splitFirst"></span><span id="splitSecond"></span></div>
+        </div>
+        <span class="result-mark" id="resultMark" aria-hidden="true">=</span>
+        <output class="result-value" id="resultValue" aria-live="polite"></output>
+      </div>
+      <p class="hint" id="hint" aria-live="polite" hidden></p>
+
+      <div class="keypad-area" aria-label="数字ボタン">
+        <div class="digits">
+          <button class="digit" type="button" data-digit="1" aria-label="1">1</button>
+          <button class="digit" type="button" data-digit="2" aria-label="2">2</button>
+          <button class="digit" type="button" data-digit="3" aria-label="3">3</button>
+          <button class="digit" type="button" data-digit="4" aria-label="4">4</button>
+          <button class="digit" type="button" data-digit="5" aria-label="5">5</button>
+          <button class="digit" type="button" data-digit="6" aria-label="6">6</button>
+          <button class="digit" type="button" data-digit="7" aria-label="7">7</button>
+          <button class="digit" type="button" data-digit="8" aria-label="8">8</button>
+          <button class="digit" type="button" data-digit="9" aria-label="9">9</button>
+          <button class="digit" type="button" data-digit="0" aria-label="0">0</button>
+        </div>
+        <button class="delete" id="deleteButton" type="button" aria-label="選んでいる数を全部消す">
+          <span class="delete-icon" aria-hidden="true">⌫</span><span class="delete-text">けす</span>
+        </button>
+      </div>
+
+      <div class="future-controls" aria-label="四則演算と操作">
+        <div class="operators" aria-label="四則演算ボタン">
+          <button class="operator" type="button" data-op="+" aria-label="たし算">＋</button>
+          <button class="operator" type="button" data-op="-" aria-label="ひき算">−</button>
+          <button class="operator" type="button" data-op="*" aria-label="かけ算">×</button>
+          <button class="operator" type="button" data-op="/" aria-label="わり算">÷</button>
+        </div>
+        <div class="control-actions">
+          <button class="reset" type="button" id="resetButton">やり直し</button>
+          <button class="confirm" type="button" id="confirmButton">決定</button>
+        </div>
+      </div>
+      <p class="coming-soon" id="status" aria-live="polite"></p>
+    </section>
+  </main>
+  <script>
+    const values = { left: '', right: '' };
+    let activeSide = 'left';
+    let selectedOperator = '';
+    const boxes = { left: document.querySelector('#leftBox'), right: document.querySelector('#rightBox') };
+    const outputs = { left: document.querySelector('#leftValue'), right: document.querySelector('#rightValue') };
+    const hint = document.querySelector('#hint');
+    const expressionMark = document.querySelector('#expressionMark');
+    const status = document.querySelector('#status');
+    const app = document.querySelector('.app');
+    const inputCard = document.querySelector('#inputCard');
+    const visualization = document.querySelector('#visualization');
+    const stageExpressionSlot = document.querySelector('#stageExpressionSlot');
+    const gridBoard = document.querySelector('#gridBoard');
+    const gridLayout = document.querySelector('.grid-layout');
+    const resultMark = document.querySelector('#resultMark');
+    const resultValue = document.querySelector('#resultValue');
+    const stageActions = document.querySelector('#stageActions');
+    const splitValues = document.querySelector('#splitValues');
+    const splitNumbers = [document.querySelector('#splitFirst'), document.querySelector('#splitSecond')];
+
+    function render() {
+      for (const side of ['left', 'right']) {
+        outputs[side].textContent = values[side] || '？';
+        outputs[side].classList.toggle('empty', !values[side]);
+        boxes[side].classList.toggle('active', side === activeSide);
+        boxes[side].classList.toggle('operand-left', side === 'left');
+        boxes[side].classList.toggle('operand-right', side === 'right');
+        boxes[side].setAttribute('aria-pressed', String(side === activeSide));
+      }
+      expressionMark.textContent = selectedOperator ? ({ '+': '＋', '-': '−', '*': '×', '/': '÷' }[selectedOperator]) : '□';
+      document.querySelectorAll('[data-op]').forEach((button) => {
+        const selected = button.dataset.op === selectedOperator;
+        button.classList.toggle('selected', selected);
+        button.setAttribute('aria-pressed', String(selected));
+      });
+    }
+
+    function selectSide(side) {
+      activeSide = side;
+      render();
+    }
+
+    document.querySelectorAll('[data-digit]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const digitLimit = selectedOperator === '*' || (selectedOperator === '/' && activeSide === 'right') ? 1 : 2;
+        if (values[activeSide].length >= digitLimit) {
+          status.textContent = digitLimit === 1 ? '1桁まで' : '2桁まで';
+          return;
+        }
+        values[activeSide] += button.dataset.digit;
+        status.textContent = '';
+        render();
+      });
+    });
+    document.querySelector('#deleteButton').addEventListener('click', () => {
+      values[activeSide] = '';
+      status.textContent = '';
+      render();
+    });
+    document.querySelectorAll('[data-op]').forEach((button) => {
+      button.addEventListener('click', () => {
+        selectedOperator = button.dataset.op;
+        if (selectedOperator === '*') {
+          values.left = values.left.slice(0, 1);
+          values.right = values.right.slice(0, 1);
+        } else if (selectedOperator === '/') {
+          values.right = values.right.slice(0, 1);
+        }
+        activeSide = 'right';
+        status.textContent = '';
+        render();
+        boxes.right.focus({ preventScroll: true });
+      });
+    });
+    function makeDot(side) {
+      const dot = document.createElement('span');
+      dot.className = `dot ${side}`;
+      dot.style.opacity = '0';
+      dot.style.transform = 'translateY(-72px) scale(.72)';
+      return dot;
+    }
+
+    function buildBoard(left, right, operator) {
+      gridBoard.replaceChildren();
+      expression.classList.remove('with-result');
+      expression.classList.remove('division-result');
+      resultValue.textContent = '';
+      splitValues.classList.remove('shown');
+      splitNumbers.forEach((number) => {
+        number.textContent = '';
+        number.classList.remove('stay-number', 'move-number');
+      });
+      const divisionQuotient = operator === '/' ? Math.floor(left / right) : 0;
+      gridBoard.style.gridTemplateColumns = 'repeat(10, minmax(0, 1fr))';
+      gridBoard.style.gridTemplateRows = 'repeat(10, minmax(0, 1fr))';
+      const cells = Array.from({ length: 100 }, () => {
+        const cell = document.createElement('div');
+        cell.className = 'grid-cell';
+        gridBoard.append(cell);
+        return cell;
+      });
+      const boundary = Math.ceil(left / 10) * 10;
+      if (operator === '/') {
+        const leftDots = [];
+        const leftDotSourceIndices = [];
+        for (let i = 0; i < left; i++) {
+          const dot = makeDot('left');
+          cells[i].append(dot);
+          leftDots.push(dot);
+          leftDotSourceIndices.push(i);
+        }
+        return {
+          cells, leftDots, rightDots: [], rightSourceIndices: [], left, right, rightCount: 0,
+          rightStart: 0, moveCount: 0, division: true, leftDotSourceIndices,
+          alignDivision: divisionQuotient <= 10 || (divisionQuotient <= 19 && right <= 5), overflow: false,
+          leftTensCount: 0, rightTensCount: 0
+        };
+      }
+      if (operator === '*') {
+        const leftDots = [];
+        for (let i = 0; i < left; i++) {
+          const dot = makeDot('left');
+          cells[i].append(dot);
+          leftDots.push(dot);
+        }
+        return {
+          cells, leftDots, rightDots: [], rightSourceIndices: [], left, right, rightCount: 0,
+          rightStart: 0, moveCount: 0, multiplication: true, overflow: false,
+          leftTensCount: 0, rightTensCount: 0
+        };
+      }
+      if (operator === '-') {
+        const leftDots = [];
+        for (let i = 0; i < left; i++) {
+          const dot = makeDot('left');
+          cells[i].append(dot);
+          leftDots.push(dot);
+        }
+        const onesGroupCount = right % 10;
+        const tensGroupCount = right - onesGroupCount;
+        const overflow = left + right > 100;
+        const directFill = boundary + right > 100 && !overflow;
+        const rightStart = directFill ? left : boundary;
+        const rightCount = overflow ? Math.min(right, 100 - rightStart) : right;
+        const rightSourceIndices = Array.from({ length: rightCount }, (_, i) => rightStart + i);
+        return {
+          cells, leftDots, rightDots: [], rightSourceIndices,
+          left, right, rightCount, rightStart,
+          moveCount: 0, onesGroupCount, tensGroupCount, subtraction: true, overflow,
+          leftTensCount: 0, rightTensCount: 0
+        };
+      }
+      const overflow = left + right > 100;
+      const rightOnes = right % 10;
+      const leftDots = [];
+      for (let i = 0; i < left; i++) {
+        const dot = makeDot('left');
+        cells[i].append(dot);
+        leftDots.push(dot);
+      }
+      const directFill = overflow || boundary + right > 100;
+      let rightStart;
+      let rightCount;
+      let overflowGapCount = 0;
+      if (overflow && boundary < 100) {
+        rightStart = boundary;
+        rightCount = Math.min(right, 100 - boundary);
+        overflowGapCount = Math.min(boundary - left, rightCount);
+      } else if (directFill) {
+        rightStart = left;
+        rightCount = Math.min(right, 100 - left);
+      } else {
+        rightStart = boundary;
+        rightCount = right;
+      }
+      const rightSourceIndices = Array.from({ length: rightCount }, (_, i) => rightStart + i);
+      const moveCount = directFill || left % 10 === 0 ? 0 : Math.min(rightOnes, 10 - (left % 10));
+      const rightOnesOffset = right - rightOnes;
+      const splitAmount = rightOnes;
+      const moveStart = rightOnesOffset + splitAmount - moveCount;
+      const moveTargetStart = left;
+      const splitCellIndex = moveCount ? rightSourceIndices[moveStart] : -1;
+      return {
+        cells, leftDots, rightDots: [], rightSourceIndices, left, right, rightCount,
+        splitAmount, rightOnesOffset, moveCount, moveStart, moveTargetStart, splitCellIndex,
+        rightStart, overflow, overflowGapCount, grouped: false, leftTensCount: 0,
+        rightTensCount: 0
+      };
+    }
+
+    async function dropDots(dots, reducedMotion) {
+      const animations = dots.map((dot, index) => dot.animate(
+        [
+          { transform: 'translateY(-72px) scale(.72)', opacity: 0 },
+          { transform: 'translateY(0) scale(1)', opacity: 1 }
+        ],
+        { duration: reducedMotion ? 1 : 440, delay: reducedMotion ? 0 : index * 52, easing: 'linear', fill: 'forwards' }
+      ));
+      await Promise.all(animations.map((animation) => animation.finished));
+      dots.forEach((dot, index) => {
+        dot.style.opacity = '1';
+        dot.style.transform = '';
+        animations[index].cancel();
+      });
+    }
+
+    async function dropOperandDots(dots, tensCount, reducedMotion, wait) {
+      if (tensCount > 0 && tensCount < dots.length) {
+        await dropDots(dots.slice(0, tensCount), reducedMotion);
+        await wait(450);
+        await dropDots(dots.slice(tensCount), reducedMotion);
+        return;
+      }
+      await dropDots(dots, reducedMotion);
+    }
+
+    function markProductGroup(cells, start, length) {
+      for (let offset = 0; offset < length; offset++) {
+        const cell = cells[start + offset];
+        cell.classList.add('product-group');
+        if (offset === 0) cell.classList.add('product-group-start');
+        if (offset === length - 1) cell.classList.add('product-group-end');
+      }
+    }
+
+    function markProductCells(cells, indices) {
+      indices.forEach((index, offset) => {
+        const cell = cells[index];
+        cell.classList.add('product-group');
+        if (offset === 0) cell.classList.add('product-group-start');
+        if (offset === indices.length - 1) cell.classList.add('product-group-end');
+      });
+    }
+
+    async function alignProductGroups(model, reducedMotion, wait) {
+      const { left, right, cells } = model;
+      await wait(650);
+      for (let row = 1; row < right; row++) {
+        const sourceStart = row * 10;
+        for (let column = 0; column < left; column++) {
+          cells[sourceStart + column].classList.remove('product-group', 'product-group-start', 'product-group-end');
+        }
+        markProductGroup(cells, row * left, left);
+        await wait(160);
+        const moves = [];
+        for (let column = 0; column < left; column++) {
+          const dot = cells[row * 10 + column].querySelector('.dot');
+          const target = cells[row * left + column];
+          if (!dot || !target) continue;
+          const from = dot.getBoundingClientRect();
+          const to = target.getBoundingClientRect();
+          const dx = to.left + to.width / 2 - (from.left + from.width / 2);
+          const dy = to.top + to.height / 2 - (from.top + from.height / 2);
+          dot.classList.add('product-moving');
+          const animation = dot.animate(
+            [{ transform: 'translate(0, 0) scale(1)' }, { transform: `translate(${dx}px, ${dy}px) scale(1)` }],
+            { duration: reducedMotion ? 1 : 600, easing: 'cubic-bezier(.2, .72, .25, 1)', fill: 'forwards' }
+          );
+          moves.push(animation.finished.then(() => {
+            animation.cancel();
+            dot.style.transform = '';
+            dot.classList.remove('product-moving');
+            target.append(dot);
+          }));
+        }
+        await Promise.all(moves);
+        if (row < right - 1) await wait(180);
+      }
+    }
+
+    async function runDivision(model, reducedMotion, wait) {
+      const { right, cells, leftDots, leftDotSourceIndices, alignDivision } = model;
+      const quotient = Math.floor(model.left / right);
+      const remainder = model.left % right;
+      const clearFrames = () => cells.forEach((cell) => cell.classList.remove('product-group', 'product-group-start', 'product-group-end'));
+      clearFrames();
+      if (!alignDivision || quotient === 0) return { quotient, remainder };
+      if (right > 1) {
+        for (let group = 0; group < quotient; group++) {
+          markProductCells(cells, leftDotSourceIndices.slice(group * right, (group + 1) * right));
+          if (group < quotient - 1) await wait(200);
+        }
+      }
+      await wait(1000);
+      clearFrames();
+      const groupCells = Array.from({ length: quotient }, (_, group) => {
+        const row = group < 10 ? group : group - 10;
+        const column = group < 10 ? 0 : right;
+        return Array.from({ length: right }, (_, place) => row * 10 + column + place);
+      });
+      for (let group = 0; group < quotient; group++) {
+        if (group < 10) markProductGroup(cells, group * 10, right);
+        else markProductCells(cells, groupCells[group]);
+      }
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+
+      const remainderCells = [];
+      if (quotient <= 10) {
+        for (let row = 0; row < 10; row++) {
+          for (let column = right; column < 10; column++) remainderCells.push(row * 10 + column);
+        }
+      } else {
+        const row = quotient - 10;
+        for (let column = right; column < right * 2; column++) remainderCells.push(row * 10 + column);
+      }
+      const remainderTargets = remainderCells.slice(0, remainder).map((index) => cells[index]);
+      const targets = leftDots.map((dot, index) => {
+        if (index < quotient * right) {
+          const group = Math.floor(index / right);
+          const place = index % right;
+          return cells[groupCells[group][place]];
+        }
+        return remainderTargets[index - quotient * right];
+      });
+      const transfers = leftDots.map((dot, index) => {
+        const from = dot.getBoundingClientRect();
+        const to = targets[index].getBoundingClientRect();
+        const dx = to.left + to.width / 2 - (from.left + from.width / 2);
+        const dy = to.top + to.height / 2 - (from.top + from.height / 2);
+        dot.classList.add('product-moving');
+        const animation = dot.animate(
+          [{ transform: 'translate(0, 0)' }, { transform: `translate(${dx}px, ${dy}px)` }],
+          { duration: reducedMotion ? 1 : 680, easing: 'cubic-bezier(.2, .72, .25, 1)', fill: 'forwards' }
+        );
+        return animation.finished.then(() => ({ dot, target: targets[index], animation }));
+      });
+      const completed = await Promise.all(transfers);
+      completed.forEach(({ dot, target, animation }) => {
+        animation.cancel();
+        dot.style.transform = '';
+        dot.classList.remove('product-moving');
+        target.append(dot);
+      });
+      await wait(250);
+      return { quotient, remainder };
+    }
+
+    function animateDots(model, reducedMotion) {
+      const jobs = [];
+      const movedStart = model.moveStart;
+      for (let i = 0; i < model.moveCount; i++) {
+        const dot = model.rightDots[movedStart + i];
+        const from = dot.getBoundingClientRect();
+        const sourceCell = dot.parentElement.getBoundingClientRect();
+        const targetCell = model.cells[model.moveTargetStart + i];
+        const to = targetCell.getBoundingClientRect();
+        const startX = from.left + from.width / 2 - (sourceCell.left + sourceCell.width / 2);
+        const startY = from.top + from.height / 2 - (sourceCell.top + sourceCell.height / 2);
+        const dx = to.left + to.width / 2 - (from.left + from.width / 2);
+        const dy = to.top + to.height / 2 - (from.top + from.height / 2);
+        const animation = dot.animate(
+          [
+            { transform: `translate(${startX}px, ${startY}px) scale(1)` },
+            { transform: `translate(${startX + dx}px, ${startY + dy}px) scale(1.12)` }
+          ],
+          { duration: reducedMotion ? 1 : 1150, delay: reducedMotion ? 0 : i * 70, easing: 'cubic-bezier(.12, .76, .22, 1)', fill: 'forwards' }
+        );
+        jobs.push(animation.finished.then(() => {
+          animation.cancel();
+          dot.style.transform = '';
+          targetCell.append(dot);
+        }));
+      }
+      return Promise.all(jobs);
+    }
+
+    async function liftDots(movingDots, reducedMotion) {
+      const lift = reducedMotion ? 0 : 12;
+      const lifts = movingDots.map((dot, index) => dot.animate(
+        [{ transform: 'translateY(0)' }, { transform: `translateY(-${lift}px)` }],
+        { duration: reducedMotion ? 1 : 240, delay: reducedMotion ? 0 : index * 45, easing: 'ease-out', fill: 'forwards' }
+      ));
+      await Promise.all(lifts.map((animation) => animation.finished));
+      movingDots.forEach((dot, index) => {
+        dot.style.transform = `translateY(-${lift}px)`;
+        lifts[index].cancel();
+      });
+    }
+
+    async function liftMovingDots(model, reducedMotion) {
+      const movedStart = model.moveStart;
+      await liftDots(model.rightDots.slice(movedStart), reducedMotion);
+    }
+
+    function colorSplitGroups(model) {
+      const movingStart = model.moveStart;
+      for (let index = model.rightOnesOffset; index < model.rightOnesOffset + model.splitAmount; index++) {
+        const moving = index >= movingStart;
+        const sourceIndex = model.rightSourceIndices[index];
+        model.cells[sourceIndex].classList.add(moving ? 'move-source' : 'stay-source');
+      }
+      splitNumbers[0].classList.add('stay-number');
+      splitNumbers[1].classList.add('move-number');
+    }
+
+    async function animateRemoval(model, dots, targetIndexes, reducedMotion) {
+      const movements = dots.map((dot, index) => {
+        const from = dot.getBoundingClientRect();
+        const sourceCell = dot.parentElement;
+        const sourceRect = sourceCell.getBoundingClientRect();
+        const targetCell = model.cells[targetIndexes[index]];
+        const to = targetCell.getBoundingClientRect();
+        const startX = from.left + from.width / 2 - (sourceRect.left + sourceRect.width / 2);
+        const startY = from.top + from.height / 2 - (sourceRect.top + sourceRect.height / 2);
+        const dx = to.left + to.width / 2 - (from.left + from.width / 2);
+        const dy = to.top + to.height / 2 - (from.top + from.height / 2);
+        const finalTransform = `translate(${startX + dx}px, ${startY + dy}px) scale(1)`;
+        const movement = dot.animate(
+          [
+            { transform: `translate(${startX}px, ${startY}px) scale(1)`, opacity: 1 },
+            { transform: finalTransform, opacity: 1 }
+          ],
+          { duration: reducedMotion ? 1 : 440, delay: reducedMotion ? 0 : index * 45, easing: 'cubic-bezier(.12, .76, .22, 1)', fill: 'forwards' }
+        );
+        return { dot, sourceCell, targetCell, movement, finalTransform };
+      });
+      await Promise.all(movements.map(({ movement }) => movement.finished));
+      if (!reducedMotion) await new Promise((resolve) => setTimeout(resolve, 220));
+
+      const removals = movements.map(({ dot, targetCell, finalTransform }) => {
+        const blueDot = targetCell.querySelector('.dot.left');
+        const redFade = dot.animate(
+          [{ transform: finalTransform, opacity: 1 }, { transform: finalTransform.replace('scale(1)', 'scale(.18)'), opacity: 0 }],
+          { duration: reducedMotion ? 1 : 180, easing: 'ease-out', fill: 'forwards' }
+        );
+        const blueFade = blueDot?.animate(
+          [{ transform: 'scale(1)', opacity: 1 }, { transform: 'scale(.18)', opacity: 0 }],
+          { duration: reducedMotion ? 1 : 180, easing: 'ease-out', fill: 'forwards' }
+        );
+        return { blueDot, redFade, blueFade, finished: Promise.all([redFade.finished, ...(blueFade ? [blueFade.finished] : [])]) };
+      });
+      await Promise.all(removals.map(({ finished }) => finished));
+      movements.forEach(({ dot, sourceCell, movement }, index) => {
+        movement.cancel();
+        removals[index].redFade.cancel();
+        removals[index].blueFade?.cancel();
+        removals[index].blueDot?.remove();
+        sourceCell.classList.remove('stay-source', 'move-source');
+        dot.remove();
+      });
+    }
+
+    async function runSubtraction(model, reducedMotion, wait) {
+      const tensCount = model.tensGroupCount;
+      const onesCount = model.onesGroupCount;
+
+      if (tensCount > 0) {
+        const tensStart = Math.floor(model.left / 10) * 10 - tensCount;
+        const tensDots = model.rightDots.slice(0, tensCount);
+        const tensTargets = Array.from({ length: tensCount }, (_, i) => tensStart + i);
+        const unitBoundary = model.rightSourceIndices[tensCount];
+        if (unitBoundary !== undefined) model.cells[unitBoundary].classList.add('split-before');
+        await liftDots(tensDots, reducedMotion);
+        await wait(500);
+        await animateRemoval(model, tensDots, tensTargets, reducedMotion);
+        if (unitBoundary !== undefined) model.cells[unitBoundary].classList.remove('split-before');
+        await wait(500);
+      }
+
+      if (onesCount === 0) return;
+      const onesDots = model.rightDots.slice(tensCount);
+      const onesAvailable = model.left % 10;
+      if (onesAvailable >= onesCount) {
+        const onesStart = model.left - onesCount;
+        const onesTargets = Array.from({ length: onesCount }, (_, i) => onesStart + i);
+        onesDots.forEach((dot) => dot.parentElement.classList.add('stay-source'));
+        onesTargets.forEach((index) => model.cells[index].classList.add('stay-source'));
+        await animateRemoval(model, onesDots, onesTargets, reducedMotion);
+        return;
+      }
+
+      const y = onesAvailable;
+      const x = onesCount - y;
+      const unitDots = onesDots.slice(0, y);
+      const tenDots = onesDots.slice(y);
+      const unitStart = model.left - y;
+      const tenStart = model.left - tensCount - y - x;
+      const unitTargets = Array.from({ length: y }, (_, i) => unitStart + i);
+      const tenTargets = Array.from({ length: x }, (_, i) => tenStart + i);
+      const splitAt = model.rightSourceIndices[tensCount + y];
+      if (splitAt !== undefined) model.cells[splitAt].classList.add('split-before');
+      splitNumbers[0].textContent = String(y);
+      splitNumbers[1].textContent = String(x);
+      splitNumbers[0].classList.add('stay-number');
+      splitNumbers[1].classList.add('move-number');
+      splitValues.classList.add('shown');
+      unitDots.forEach((dot) => dot.parentElement.classList.add('stay-source'));
+      tenDots.forEach((dot) => dot.parentElement.classList.add('move-source'));
+      unitTargets.forEach((index) => model.cells[index].classList.add('stay-source'));
+      tenTargets.forEach((index) => model.cells[index].classList.add('move-target'));
+
+      await liftDots(unitDots, reducedMotion);
+      await wait(500);
+      await animateRemoval(model, unitDots, unitTargets, reducedMotion);
+      await wait(500);
+      await liftDots(tenDots, reducedMotion);
+      await wait(500);
+      await animateRemoval(model, tenDots, tenTargets, reducedMotion);
+      if (splitAt !== undefined) model.cells[splitAt].classList.remove('split-before');
+      await wait(500);
+    }
+
+    async function runNegativeSubtraction(model, reducedMotion, wait) {
+      const removedDots = model.rightDots.slice(0, model.left);
+      const targets = Array.from({ length: model.left }, (_, i) => i);
+      await animateRemoval(model, removedDots, targets, reducedMotion);
+      await wait(250);
+
+      const excessDots = model.rightDots.slice(model.left);
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+
+      const animations = excessDots.map((dot, index) => {
+        const from = dot.getBoundingClientRect();
+        const source = dot.parentElement.getBoundingClientRect();
+        const startX = from.left + from.width / 2 - (source.left + source.width / 2);
+        const startY = from.top + from.height / 2 - (source.top + source.height / 2);
+        const dy = Math.max(300, window.innerHeight + 100 - (from.top + from.height / 2));
+        const drift = (Math.random() - .5) * 36;
+        return dot.animate(
+          [
+            { offset: 0, transform: `translate(${startX}px, ${startY}px)`, opacity: 1, easing: 'cubic-bezier(.55, 0, 1, .45)' },
+            { offset: .72, transform: `translate(${startX + drift * .5}px, ${startY + dy * .55}px) rotate(18deg)`, opacity: .72, easing: 'linear' },
+            { offset: 1, transform: `translate(${startX + drift}px, ${startY + dy}px) rotate(42deg)`, opacity: 0 }
+          ],
+          { duration: reducedMotion ? 1 : 1050, delay: reducedMotion ? 0 : index * 45, easing: 'linear', fill: 'forwards' }
+        );
+      });
+      await Promise.all(animations.map((animation) => animation.finished));
+      excessDots.forEach((dot, index) => {
+        animations[index].cancel();
+        dot.remove();
+      });
+    }
+
+    async function burstDots(model, reducedMotion) {
+      const bounds = gridBoard.getBoundingClientRect();
+      const centerX = bounds.left + bounds.width / 2;
+      const centerY = bounds.top + bounds.height / 2;
+      const dots = model.cells.flatMap((cell) => Array.from(cell.querySelectorAll('.dot')));
+      const animations = dots.map((dot, index) => {
+        const rect = dot.getBoundingClientRect();
+        const dx = rect.left + rect.width / 2 - centerX;
+        const dy = rect.top + rect.height / 2 - centerY;
+        const angle = Math.atan2(dy, dx) + (Math.random() - .5) * .8;
+        const distance = 140 + Math.random() * 190 + Math.hypot(dx, dy) * .55;
+        const x = Math.cos(angle) * distance;
+        const y = Math.sin(angle) * distance;
+        const rotation = (Math.random() - .5) * 900;
+        return dot.animate(
+          [
+            { transform: 'translate(0, 0) scale(1)', opacity: 1 },
+            { transform: `translate(${x}px, ${y}px) rotate(${rotation}deg) scale(.15)`, opacity: 0 }
+          ],
+          { duration: reducedMotion ? 1 : 650, delay: reducedMotion ? 0 : index % 10 * 8, easing: 'cubic-bezier(.18, .72, .25, 1)', fill: 'forwards' }
+        );
+      });
+      await Promise.all([
+        ...animations.map((animation) => animation.finished),
+        gridLayout.animate(
+          [{ transform: 'scale(1)' }, { transform: 'scale(1.07)' }, { transform: 'scale(.97)' }, { transform: 'scale(1)' }],
+          { duration: reducedMotion ? 1 : 520, easing: 'cubic-bezier(.18, .72, .25, 1)' }
+        ).finished,
+        visualization.animate(
+          [{ filter: 'brightness(1)' }, { filter: 'brightness(1.25)' }, { filter: 'brightness(1)' }],
+          { duration: reducedMotion ? 1 : 360, easing: 'ease-out' }
+        ).finished
+      ]);
+      dots.forEach((dot) => dot.remove());
+    }
+
+    async function revealResult(total, reducedMotion) {
+      resultValue.textContent = String(total);
+      expression.classList.add('with-result');
+      const animations = [resultMark, resultValue].map((element) => element.animate(
+        [{ opacity: 0, transform: 'scale(.62)' }, { opacity: 1, transform: 'scale(1)' }],
+        { duration: reducedMotion ? 1 : 420, easing: 'cubic-bezier(.16, .9, .28, 1.2)' }
+      ));
+      await Promise.all(animations.map((animation) => animation.finished));
+      stageActions.classList.add('visible');
+    }
+
+    async function startCalculation() {
+      if (!values.left || !values.right || !selectedOperator) {
+        status.textContent = '式が未完成です';
+        return;
+      }
+      if (!['+', '-', '*', '/'].includes(selectedOperator)) {
+        status.textContent = 'この計算の表示は準備中です';
+        return;
+      }
+      if (selectedOperator === '/' && Number(values.right) === 0) {
+        status.textContent = '0では割れません';
+        return;
+      }
+      const left = Number(values.left);
+      const right = Number(values.right);
+
+      const from = expression.getBoundingClientRect();
+      const model = buildBoard(left, right, selectedOperator);
+      stageActions.classList.remove('visible');
+      boxes.left.classList.remove('active');
+      boxes.right.classList.remove('active');
+      boxes.left.classList.add('veiled');
+      boxes.right.classList.add('veiled');
+      expressionMark.classList.add('veiled');
+      visualization.classList.add('visible');
+      stageExpressionSlot.append(expression);
+      inputCard.hidden = true;
+      app.classList.add('finished');
+      document.body.classList.add('animation-mode');
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const wait = (ms) => new Promise((resolve) => setTimeout(resolve, reducedMotion ? 0 : ms));
+      const revealOperand = async (box) => {
+        const animation = box.animate(
+          [{ opacity: 0, transform: 'scale(.58)' }, { opacity: 1, transform: 'scale(1)' }],
+          { duration: reducedMotion ? 1 : 300, easing: 'cubic-bezier(.18, .9, .28, 1.2)', fill: 'both' }
+        );
+        await animation.finished;
+        animation.cancel();
+        await wait(500);
+      };
+      const gridEntrance = gridLayout.animate(
+        [{ opacity: 0, transform: 'scale(.94)' }, { opacity: 1, transform: 'scale(1)' }],
+        { duration: reducedMotion ? 1 : 460, easing: 'cubic-bezier(.18, .72, .28, 1)' }
+      );
+      const to = expression.getBoundingClientRect();
+      expression.classList.add('fly');
+      expression.style.transform = `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${from.width / to.width}, ${from.height / to.height})`;
+      requestAnimationFrame(() => { expression.style.transform = 'translate(0, 0) scale(1)'; });
+
+      await new Promise((resolve) => setTimeout(resolve, 760));
+      expression.classList.remove('fly');
+      expression.style.transform = '';
+      boxes.left.classList.remove('veiled');
+      await revealOperand(boxes.left);
+      await dropOperandDots(model.leftDots, model.leftTensCount, reducedMotion, wait);
+      await wait(1000);
+      boxes.right.classList.remove('veiled');
+      await revealOperand(boxes.right);
+      for (let i = 0; i < model.rightCount; i++) {
+        const dot = makeDot('right');
+        model.cells[model.rightSourceIndices[i]].append(dot);
+        model.rightDots.push(dot);
+      }
+      await dropOperandDots(model.rightDots, model.rightTensCount, reducedMotion, wait);
+      if (model.multiplication && left > 0 && right > 0) {
+        markProductGroup(model.cells, 0, left);
+        await wait(250);
+      }
+      if (model.division && right > 0) {
+        markProductGroup(model.cells, 0, right);
+        await wait(250);
+      }
+      expressionMark.classList.remove('veiled');
+      const opEntrance = expressionMark.animate(
+        [{ opacity: 0, transform: 'scale(4)' }, { opacity: 1, transform: 'scale(1)' }],
+        { duration: reducedMotion ? 1 : 950, easing: 'linear' }
+      );
+      await Promise.all([opEntrance.finished, gridEntrance.finished]);
+      const shakeDuration = reducedMotion ? 1 : 850;
+      await Promise.all([
+        app.animate(
+          [
+            { transform: 'translateX(0) rotate(0)' },
+            { transform: 'translateX(-7px) rotate(-.35deg)', offset: .2 },
+            { transform: 'translateX(6px) rotate(.3deg)', offset: .42 },
+            { transform: 'translateX(-4.5px) rotate(-.2deg)', offset: .62 },
+            { transform: 'translateX(3px) rotate(.12deg)', offset: .8 },
+            { transform: 'translateX(0) rotate(0)' }
+          ],
+          { duration: shakeDuration, easing: 'cubic-bezier(.18, .72, .25, 1)' }
+        ).finished,
+        gridLayout.animate(
+          [
+            { transform: 'scale(1)' },
+            { transform: 'scale(1.042)', offset: .28 },
+            { transform: 'scale(.992)', offset: .62 },
+            { transform: 'scale(1)' }
+          ],
+          { duration: shakeDuration, easing: 'cubic-bezier(.18, .78, .24, 1)' }
+        ).finished
+      ]);
+      const total = selectedOperator === '+' ? left + right : selectedOperator === '*' ? left * right : selectedOperator === '/' ? Math.floor(left / right) : left - right;
+      if (model.overflow) {
+        if (model.subtraction && total > 0) {
+          await burstDots(model, reducedMotion);
+          await wait(180);
+          gridBoard.querySelectorAll('.dot').forEach((dot) => dot.remove());
+          const resultDots = [];
+          for (let i = 0; i < total; i++) {
+            const dot = makeDot('left');
+            model.cells[i].append(dot);
+            resultDots.push(dot);
+          }
+          await dropDots(resultDots, reducedMotion);
+          await wait(300);
+          await revealResult(total, reducedMotion);
+          return;
+        }
+        if (model.overflowGapCount > 0) {
+          const fillDots = [];
+          for (let i = 0; i < model.overflowGapCount; i++) {
+            const dot = makeDot('right');
+            model.cells[left + i].append(dot);
+            fillDots.push(dot);
+          }
+          await Promise.all(fillDots.map((dot, index) => dot.animate(
+            [
+              { transform: 'translateY(80px) scale(.65)', opacity: 0 },
+              { transform: 'translateY(0) scale(1)', opacity: 1 }
+            ],
+            { duration: reducedMotion ? 1 : 420, delay: reducedMotion ? 0 : index * 55, easing: 'linear', fill: 'forwards' }
+          ).finished));
+          fillDots.forEach((dot) => { dot.style.transform = ''; dot.style.opacity = '1'; });
+          await wait(320);
+        }
+        await burstDots(model, reducedMotion);
+        await wait(180);
+        await revealResult(total, reducedMotion);
+        return;
+      }
+      if (model.subtraction) {
+        if (right > left) await runNegativeSubtraction(model, reducedMotion, wait);
+        else await runSubtraction(model, reducedMotion, wait);
+        await revealResult(total, reducedMotion);
+        return;
+      }
+      if (model.multiplication) {
+        if (left > 0 && right === 0) {
+          const disappearances = model.leftDots.map((dot, index) => dot.animate(
+            [
+              { transform: 'translateY(0) scale(1)', opacity: 1 },
+              { transform: 'translateY(-96px) scale(.45)', opacity: 0 }
+            ],
+            { duration: reducedMotion ? 1 : 520, delay: reducedMotion ? 0 : index * 55, easing: 'ease-in', fill: 'forwards' }
+          ));
+          await Promise.all(disappearances.map((animation) => animation.finished));
+          model.leftDots.forEach((dot) => dot.remove());
+        }
+        if (left > 0 && right > 0) {
+          const firstGroup = model.cells.slice(0, left).map((cell) => cell.querySelector('.dot')).filter(Boolean);
+          await wait(220);
+          for (let row = 1; row < right; row++) {
+            markProductGroup(model.cells, row * 10, left);
+            const copies = firstGroup.map((sourceDot, column) => {
+              const target = model.cells[row * 10 + column];
+              const sourceRect = sourceDot.getBoundingClientRect();
+              const targetRect = target.getBoundingClientRect();
+              const dx = sourceRect.left + sourceRect.width / 2 - (targetRect.left + targetRect.width / 2);
+              const dy = sourceRect.top + sourceRect.height / 2 - (targetRect.top + targetRect.height / 2);
+              const dot = sourceDot.cloneNode(false);
+              dot.classList.add('product-moving');
+              dot.style.opacity = '.9';
+              dot.style.transform = `translate(${dx}px, ${dy}px) scale(1.08)`;
+              target.append(dot);
+              const animation = dot.animate(
+                [
+                  { transform: `translate(${dx}px, ${dy}px) scale(1.08)`, opacity: .9 },
+                  { transform: 'translate(0, 0) scale(1)', opacity: 1 }
+                ],
+                { duration: reducedMotion ? 1 : 500, delay: 0, easing: 'linear', fill: 'forwards' }
+              );
+              return animation.finished.then(() => {
+                animation.cancel();
+                dot.style.opacity = '1';
+                dot.style.transform = '';
+                dot.classList.remove('product-moving');
+              });
+            });
+            await Promise.all(copies);
+            if (row < right - 1) await wait(350);
+          }
+          await alignProductGroups(model, reducedMotion, wait);
+        }
+        await wait(250);
+        await revealResult(total, reducedMotion);
+        return;
+      }
+      if (model.division) {
+        const { quotient, remainder } = await runDivision(model, reducedMotion, wait);
+        expression.classList.add('division-result');
+        await revealResult(`${quotient} あまり ${remainder}`, reducedMotion);
+        return;
+      }
+      if (model.moveCount > 0) model.cells[model.splitCellIndex].classList.add('split-before');
+      const reachesTen = model.moveCount > 0 && (left + model.moveCount) % 10 === 0;
+      if (reachesTen) {
+        splitNumbers[0].textContent = String(model.splitAmount - model.moveCount);
+        splitNumbers[1].textContent = String(model.moveCount);
+        colorSplitGroups(model);
+        splitValues.classList.add('shown');
+        await liftMovingDots(model, reducedMotion);
+        await wait(500);
+      }
+      if (reachesTen) await new Promise((resolve) => requestAnimationFrame(resolve));
+      else if (!reducedMotion) await wait(180);
+      await animateDots(model, reducedMotion);
+      if (model.moveCount > 0) {
+        model.cells[model.splitCellIndex].classList.remove('split-before');
+        if (reachesTen) {
+          const movingStart = model.moveStart;
+          for (let i = movingStart; i < model.right; i++) {
+            model.cells[model.rightSourceIndices[i]].classList.remove('move-source');
+            model.cells[model.moveTargetStart + i - movingStart].classList.add('move-target');
+          }
+        }
+      }
+      if (reachesTen) {
+        await wait(500);
+      }
+      await revealResult(total, reducedMotion);
+    }
+
+    function returnToInput() {
+      inputCard.insertBefore(expression, hint);
+      inputCard.hidden = false;
+      app.classList.remove('finished');
+      document.body.classList.remove('animation-mode');
+      visualization.classList.remove('visible');
+      stageActions.classList.remove('visible');
+      expression.classList.remove('with-result');
+      resultValue.textContent = '';
+      splitValues.classList.remove('shown');
+      splitNumbers.forEach((number) => {
+        number.textContent = '';
+        number.classList.remove('stay-number', 'move-number');
+      });
+      gridBoard.replaceChildren();
+      boxes.left.classList.remove('veiled');
+      boxes.right.classList.remove('veiled');
+      expressionMark.classList.remove('veiled');
+      activeSide = 'left';
+      status.textContent = '';
+      render();
+    }
+
+    const expression = document.querySelector('.expression');
+    document.querySelector('#confirmButton').addEventListener('click', startCalculation);
+    document.querySelector('#resetButton').addEventListener('click', () => {
+      values.left = '';
+      values.right = '';
+      selectedOperator = '';
+      activeSide = 'left';
+      status.textContent = '';
+      render();
+      boxes.left.focus({ preventScroll: true });
+    });
+    document.querySelector('#backButton').addEventListener('click', returnToInput);
+    document.querySelector('#replayButton').addEventListener('click', startCalculation);
+    for (const side of ['left', 'right']) {
+      boxes[side].addEventListener('click', () => selectSide(side));
+      boxes[side].addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          selectSide(side);
+        }
+      });
+    }
+    document.addEventListener('keydown', (event) => {
+      if (/^[0-9]$/.test(event.key)) {
+        if (values[activeSide].length >= 2) {
+          status.textContent = '2桁まで';
+          return;
+        }
+        values[activeSide] += event.key;
+        status.textContent = '';
+        render();
+      } else if (event.key === 'Backspace' || event.key === 'Delete') {
+        values[activeSide] = values[activeSide].slice(0, -1);
+        status.textContent = '';
+        render();
+      }
+    });
+    render();
+  </script>
+</body>
+</html>
