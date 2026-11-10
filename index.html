@@ -133,7 +133,7 @@
     .visualization { display: none; margin-bottom: 18px; padding: 8px 14px 20px; }
     .visualization.visible { display: block; animation: stage-appear .35s ease-out both; }
     @keyframes stage-appear { from { opacity: 0; transform: translateY(12px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
-    .stage-expression-slot { min-height: 74px; margin: 0 auto 32px; max-width: 440px; }
+    .stage-expression-slot { min-height: 74px; margin: 0 auto 32px; max-width: 520px; }
     .stage-expression-slot .expression { margin: 0; }
     .stage-expression-slot .number-box { padding: 4px; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
     .stage-expression-slot .number-box { align-self: start; }
@@ -148,7 +148,7 @@
     .stage-expression-slot .expression.with-result .result-mark { font-size: 2.7rem; }
     .stage-expression-slot .expression.with-result .result-mark, .stage-expression-slot .expression.with-result .result-value { align-self: start; margin-top: 5px; }
     .stage-expression-slot .expression.with-result .result-value { color: #21834b; font-size: clamp(2.5rem, 9vw, 3.4rem); }
-    .stage-expression-slot .expression.division-result .result-value { font-size: clamp(1.05rem, 4vw, 1.55rem); white-space: nowrap; }
+    .stage-expression-slot .expression.division-result .remainder-value { display: block; margin-top: 2px; color: #cf4e75; font-size: .42em; font-weight: 850; line-height: 1.1; white-space: nowrap; }
     .grid-layout { display: grid; grid-template-columns: clamp(20px, 6vw, 28px) minmax(0, 1fr); grid-template-rows: clamp(20px, 6vw, 28px) minmax(0, 1fr); width: 100%; max-width: 448px; aspect-ratio: 1; margin: 0 auto; }
     .column-headers { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); grid-column: 2; grid-row: 1; align-items: center; text-align: center; color: #827c98; font-size: clamp(.58rem, 2.5vw, .78rem); font-weight: 750; }
     .row-headers { display: grid; grid-template-rows: repeat(10, minmax(0, 1fr)); grid-column: 1; grid-row: 2; align-items: center; text-align: center; color: #827c98; font-size: clamp(.58rem, 2.5vw, .78rem); font-weight: 750; }
@@ -823,14 +823,27 @@
       dots.forEach((dot) => dot.remove());
     }
 
-    async function revealResult(total, reducedMotion) {
-      resultValue.textContent = String(total);
+    async function revealResult(total, reducedMotion, remainder = null) {
+      resultValue.replaceChildren(document.createTextNode(String(total)));
+      let remainderValue = null;
+      if (remainder !== null) {
+        remainderValue = document.createElement('span');
+        remainderValue.className = 'remainder-value';
+        remainderValue.textContent = `あまり ${remainder}`;
+        resultValue.append(remainderValue);
+      }
       expression.classList.add('with-result');
       const animations = [resultMark, resultValue].map((element) => element.animate(
         [{ opacity: 0, transform: 'scale(.62)' }, { opacity: 1, transform: 'scale(1)' }],
         { duration: reducedMotion ? 1 : 420, easing: 'cubic-bezier(.16, .9, .28, 1.2)' }
       ));
       await Promise.all(animations.map((animation) => animation.finished));
+      if (remainderValue) {
+        await remainderValue.animate(
+          [{ opacity: 0, transform: 'translateY(-4px)' }, { opacity: 1, transform: 'translateY(0)' }],
+          { duration: reducedMotion ? 1 : 260, easing: 'ease-out' }
+        ).finished;
+      }
       stageActions.classList.add('visible');
     }
 
@@ -1034,7 +1047,7 @@
       if (model.division) {
         const { quotient, remainder } = await runDivision(model, reducedMotion, wait);
         expression.classList.add('division-result');
-        await revealResult(`${quotient} あまり ${remainder}`, reducedMotion);
+        await revealResult(quotient, reducedMotion, remainder);
         return;
       }
       if (model.moveCount > 0) model.cells[model.splitCellIndex].classList.add('split-before');
